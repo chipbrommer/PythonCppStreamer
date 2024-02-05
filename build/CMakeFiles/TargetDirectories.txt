@@ -1,0 +1,3 @@
+/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/build/CMakeFiles/ImageTracking.dir
+/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/build/CMakeFiles/edit_cache.dir
