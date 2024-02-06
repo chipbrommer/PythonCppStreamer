@@ -89,7 +89,7 @@ bool EO_Interface::Connect()
 #ifdef _WIN32
     std::string command = "start cmd /c python ";
 #else
-    std::string command = "bash -c python ";
+    std::string command = "python3 ";
 #endif
 
     // Append the received path and the arguemnts needed here for the full command
@@ -99,6 +99,12 @@ bool EO_Interface::Connect()
     {
         command += " --save " + mVideoFilePath;
     }
+
+    // For linux, redirect the console output and errors to /dev/null and add
+    // an '&' to the end of the command instructing it to run in the background. 
+#ifndef _WIN32
+    command += " > /dev/null 2>&1 &";
+#endif
 
     // Execute the Python script with appropriate arguments
     std::cout << "[EO_iFace] Executing command: " << command << "\n";

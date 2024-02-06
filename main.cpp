@@ -145,7 +145,7 @@ int main() {
 
 #include "eo_interface.h"
 
-constexpr bool RUN_ON_COLIBRI = false;
+constexpr bool RUN_ON_COLIBRI = true;
 
 int main()
 {

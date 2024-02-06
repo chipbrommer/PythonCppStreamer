@@ -9,6 +9,11 @@ set(CMAKE_DEPENDS_CHECK_CXX
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
+# Preprocessor definitions for this target.
+set(CMAKE_TARGET_DEFINITIONS_CXX
+  "SCRIPTS_PATH=\"/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/scripts\""
+  )
+
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "../nlohmann"

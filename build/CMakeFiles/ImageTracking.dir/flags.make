@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/aarch64-linux-gnu-g++
 CXX_FLAGS =  
 
-CXX_DEFINES = 
+CXX_DEFINES = -DSCRIPTS_PATH=\"/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/scripts\"
 
 CXX_INCLUDES = -I/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/nlohmann -I/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/scripts 
 
