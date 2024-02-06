@@ -21,14 +21,15 @@ FOCAL_LENGTH_MM = 15.0          # Focal length of the lens in mm
 DEFAULT_SERVER_PORT = 3456      # Default server port to server on
 
 # @brief - A function to handle connecting to the camera 
+# @param port - port for the camera
 # @return - The connection to the camera
-def connect_camera():
+def connect_camera(port):
     try:
-        print(f"Opening camera port: {args.port}")
-        camera = cv2.VideoCapture(args.port)
+        print(f"Opening camera port: {port}")
+        camera = cv2.VideoCapture(port)
         return camera
-    except:
-        print(f"Error opening camera port")
+    except Exception as e:
+        print(f"Error opening camera port: {e}")
         sys.exit(2)
 
 # @brief - A function to calculate FOV - assume a square camera sensor for ease
@@ -44,7 +45,9 @@ def calculate_fov(sensor_size_diagonal_mm, focal_length_mm):
 # @param camera - the connection to the camera
 # @param ip - the ip to bind on
 # @param port - the port to bind on
-def run_server(camera, ip, port, out_file):
+# @param save - the program args.save 
+# @param out_file - the port to bind on
+def run_server(camera, ip, port, save, out_file):
     # Calculate FOV
     fov_horizontal, fov_vertical = calculate_fov(SENSOR_SIZE_DIAGONAL_MM, FOCAL_LENGTH_MM)
     print(f"Horizontal FOV: {fov_horizontal:.2f} degrees")
@@ -54,14 +57,14 @@ def run_server(camera, ip, port, out_file):
     tracker = cv2.TrackerKCF_create()
 
     # Read the first frame, _ for intentional non-use of return variable
-    _, frame = cap.read()
+    _, frame = camera.read()
     
     # @todo try to track first here before entering while loop ? 
     
     # Define the codec and create a VideoWriter object if --save flag is provided
-    if args.save:
+    if save:
         writer = cv2.VideoWriter_fourcc(*'MJPG')
-        file_out = cv2.VideoWriter(out_file, writer, 20.0, (int(cap.get(3)), int(cap.get(4))))
+        file_out = cv2.VideoWriter(out_file, writer, 20.0, (int(camera.get(3)), int(camera.get(4))))
 
     # Create a socket to communicate with MiniStrike OFS
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,7 +119,7 @@ def run_server(camera, ip, port, out_file):
             cv2.imshow('Object Tracking', frame)
             
             # Write the frame to the output video file if --save flag is provided
-            if args.save & file_out.is_open:
+            if save & file_out.is_open:
                 file_out.write(frame)
             
             # Get the current timestamp of the day
@@ -155,7 +158,7 @@ def run_server(camera, ip, port, out_file):
         server_socket.close()
         
         # if we were saving to file, release the file 
-        if args.save:
+        if save:
             file_out.release()
 
 # @brief - Main function for the application
@@ -187,7 +190,7 @@ def main():
     print("\n")
 
     # Open the camera port
-    camera = connect_camera()
+    camera = connect_camera(args.port)
 
     try:
         # Check if the camera connection is open
@@ -198,7 +201,7 @@ def main():
             sys.exit(3)
 
         # Run the server
-        run_server(camera, '0.0.0.0', int(DEFAULT_SERVER_PORT))
+        run_server(camera, '0.0.0.0', int(DEFAULT_SERVER_PORT), args.save, out_file)
 
     finally:
         # Clean up
