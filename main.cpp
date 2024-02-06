@@ -145,11 +145,24 @@ int main() {
 
 #include "eo_interface.h"
 
+constexpr bool RUN_ON_COLIBRI = false;
+
 int main()
 {
-    EO_Interface eo("./scripts/ImageTracker.py", "/dev/video0");
-
-    eo.Start();
+    // Since I do not compile this on the colibri, I use this
+    // flag to change my compilation and copy the desired files over. 
+    if (RUN_ON_COLIBRI == true)
+    {
+        EO_Interface eo("./scripts/ImageTracker.py", "/dev/video0");
+        eo.Start();
+    }
+    else
+    {
+        std::string sPath = SCRIPTS_PATH;
+        sPath += "/ImageTracker.py";
+        EO_Interface eo(sPath, "/dev/video0");
+        eo.Start();
+    }
 
     return 0;
 }

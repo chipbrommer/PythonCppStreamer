@@ -30,5 +30,11 @@ target_include_directories(ImageTracking PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/nlo
 # Include Python scripts folder
 target_include_directories(ImageTracking PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
 
+# Creaing a useable definition in the c++ main for the scripts folder 
+get_filename_component(PROJECT_ROOT ${CMAKE_SOURCE_DIR} ABSOLUTE)
+set(SCRIPTS_FOLDER "scripts")
+set(SCRIPTS_PATH "${PROJECT_ROOT}/${SCRIPTS_FOLDER}")
+add_definitions(-DSCRIPTS_PATH="${SCRIPTS_PATH}")
+
 # Set the desired name for the executable with an extension
 set_target_properties(ImageTracking PROPERTIES OUTPUT_NAME "ImageTracking.out")
