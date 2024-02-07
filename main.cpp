@@ -6,7 +6,7 @@
 #include "eo_interface.h"
 
 // 0 = run colibri, 1 = build on linux, 2 = build on windows
-constexpr int RUN_TYPE = 3;
+constexpr int RUN_TYPE = 0;
 
 int main()
 {
@@ -16,9 +16,9 @@ int main()
     {
         case 0:
             {
-                EO_Interface eo("../scripts/ImageTracking.py", "/dev/video0");
+                EO_Interface eo("./scripts/ImageTracking.py", "/dev/video0");
                 eo.SetPythonServerMessageRateInHz(4);
-                eo.EnableVideoCapture("/home/root/sdcard/video_output");
+                eo.EnableVideoCapture("video_output");
                 eo.Start();
             }
             break;
@@ -37,7 +37,10 @@ int main()
             {
                 std::string sPath = SCRIPTS_PATH;
                 sPath += "/ImageTracking.py";
-                EO_Interface eo(sPath, "/dev/video0");
+                EO_Interface eo(sPath, "1");
+                eo.EnableVideoCapture("videoCapture1");
+                eo.SetPythonServerMessageRateInHz(4);
+                eo.EnableVideoDisplay(true);
                 eo.Start();
             }
             break;

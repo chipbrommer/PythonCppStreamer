@@ -8,13 +8,10 @@
 import datetime
 import socket
 import json
-import threading
-import time
 import argparse
 import sys
 import cv2
-import math
-import queue
+import platform
 
 # Define the version number
 VERSION = "0.0.4"
@@ -26,6 +23,9 @@ PUBLISH_FREQUENCY_HZ = 1        # desired message rate from the TCP server
 # @return - The connection to the camera
 def connect_camera(port):
     try:
+        # Detect if platform is windows, port will need to be an integer
+        if platform.system() == "Windows":
+            port = int(port)
         print(f"Opening camera port: {port}")
         camera = cv2.VideoCapture(port)
         return camera
@@ -51,8 +51,9 @@ def process_frame(frame, save, file_out, display):
         cv2.imshow('Object Tracking - Video Stream', frame)
     
     # Write the frame to the output video file if --save flag is provided
-    if save and file_out.isOpened():
-        file_out.write(frame)
+    if save:
+        if file_out.isOpened():
+            file_out.write(frame)
 
     return azimuth, elevation, distance
 
@@ -69,7 +70,7 @@ def run_server(camera, ip, port, save = False, out_file = None, display = False)
     frame_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(camera.get(cv2.CAP_PROP_FPS))
 
-    # Resize frame to lower resolution (e.g., 1080p)
+    # Resize frame to lower resolution
     resized_width = int(frame_width / 2)
     resized_height = int(frame_height / 2)
     
@@ -78,6 +79,8 @@ def run_server(camera, ip, port, save = False, out_file = None, display = False)
         writer = cv2.VideoWriter_fourcc(*'MJPG')
         file_out = cv2.VideoWriter(out_file, writer, fps, (resized_width,resized_height))
         print(f"Writing video to {out_file}")
+    else:
+        file_out = ""    
 
     # Create a socket to communicate with MiniStrike OFS
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
