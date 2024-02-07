@@ -8,16 +8,16 @@
 import datetime
 import socket
 import json
+import threading
 import time
 import argparse
 import sys
 import cv2
 import math
+import queue
 
 # Define the version number
-VERSION = "0.0.3"
-SENSOR_SIZE_DIAGONAL_MM = 7.66  # Diagonal size of the camera sensor in mm
-FOCAL_LENGTH_MM = 15.0          # Focal length of the lens in mm
+VERSION = "0.0.4"
 DEFAULT_SERVER_PORT = 3456      # Default server port to server on
 PUBLISH_FREQUENCY_HZ = 1        # desired message rate from the TCP server
 
@@ -33,27 +33,37 @@ def connect_camera(port):
         print(f"Error opening camera port: {e}")
         sys.exit(2)
 
-# @brief - A function to calculate FOV - assume a square camera sensor for ease
-# @param sensor_size_diagonal_mm - The diagonal size of the sense
-# @param focal_length_mm - The focal lenght of the lense
-# @return - the horizontal and vertical field of view
-def calculate_fov(sensor_size_diagonal_mm, focal_length_mm):
-    fov_horizontal = 2 * math.degrees(math.atan(sensor_size_diagonal_mm / (2 * focal_length_mm)))
-    fov_vertical = fov_horizontal 
-    return fov_horizontal, fov_vertical
+# @brief - A function to handle processing of a frame for desired items
+# @param frame - video frame to be processed
+# @param save - Boolean for if the frame is being written to a file
+# @param file_out - file handle for writing out the video
+# @param display - flag to display video to monitor
+# @return azimuth, elevation, distance of the tracked item
+def process_frame(frame, save, file_out, display):
+    azimuth = float(0.0)
+    elevation = float(0.0)
+    distance = float(0.0)
+ 
+    # @TODO process frame for desired items and draw box. 
+
+    # Display the frame if enabled
+    if display:
+        cv2.imshow('Object Tracking - Video Stream', frame)
+    
+    # Write the frame to the output video file if --save flag is provided
+    if save and file_out.isOpened():
+        file_out.write(frame)
+
+    return azimuth, elevation, distance
 
 # @brief - A function to handle running of the TCP server 
 # @param camera - the connection to the camera
 # @param ip - the ip to bind on
 # @param port - the port to bind on
 # @param save - the program args.save 
-# @param out_file - the port to bind on
-def run_server(camera, ip, port, save = False, out_file = None):
-    # Calculate FOV
-    #fov_horizontal, fov_vertical = calculate_fov(SENSOR_SIZE_DIAGONAL_MM, FOCAL_LENGTH_MM)
-    #print(f"Horizontal FOV: {fov_horizontal:.2f} degrees")
-    #print(f"Vertical FOV: {fov_vertical:.2f} degrees\n")
-
+# @param out_file - the filename/location to write video. 
+# @param display - flag to display video to monitor
+def run_server(camera, ip, port, save = False, out_file = None, display = False):
     # Get camera properties
     frame_width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -105,32 +115,26 @@ def run_server(camera, ip, port, save = False, out_file = None):
              # Resize the frame
             resized_frame = cv2.resize(frame, (resized_width, resized_height))
 
-            # Define azimuth and elevation 
-            azimuth = float(0.0)
-            elevation = float(0.0)
+            # Send resized frame for image processing and receive an azimuth, elevation, and distance
+            azimuth, elevation, distance = process_frame(resized_frame, save, file_out, display)
 
-            # Display the frame
-            cv2.imshow('Object Tracking - Video Stream', resized_frame)
-            
-            # Write the frame to the output video file if --save flag is provided
-            if save and file_out.isOpened():
-                file_out.write(resized_frame)
-            
             # Get the current timestamp of the day
             now = datetime.datetime.now()
 
-            # if its time to send another update mesage, send it
+            # If its time to send another update mesage, send it
             if (now - lastSend).total_seconds() >= time_interval:
                 lastSend = now
                 midnight = datetime.datetime.combine(now.date(), datetime.time())
-                seconds = (now - midnight).seconds
+
+                # Get the microseconds and then convert to seconds so we have msec precision. 
+                microseconds = (now - midnight).microseconds 
+                seconds = (now - midnight).seconds + microseconds / 1_000_000  
 
                 data = {
                     'timestamp': seconds,           # timestamp of message sending
-                    'latitude': 37.7749,            # @todo with actual latitude
-                    'longitude': -122.4194,         # @todo with actual longitude
-                    'azimuth': azimuth,             # @todo with actual azimuth
-                    'elevation': elevation          # @todo with actual elevation
+                    'azimuth': azimuth,             # Azimuth of the tracked item 
+                    'elevation': elevation,         # Elevation of the tracked item 
+                    'distance': distance            # Disatnce of the tracked item
                 }
 
                 # Convert data to JSON format
@@ -172,12 +176,15 @@ def main():
     print("=========================================\n\n")
 
     # Create an argument parser
-    parser = argparse.ArgumentParser(description="MiniStrike EO Camera Handler")
+    parser = argparse.ArgumentParser(description="Python script for MiniStrike to capture video from the received port for the camera connection.\n"
+                                     + f" This script then acts as a TCP server on port {DEFAULT_SERVER_PORT} to trasmit data back to\n"
+                                     + " connected clients at a desired message rate.")
 
     # Add arguments for port and save file
-    parser.add_argument('--port', help='Specify the port for the camera connection', required=True)
-    parser.add_argument('--save', nargs=1, metavar='<output_file>', help='Specify the output file for saving data')
-    parser.add_argument('--rate', default=1, type=float, help='Specify the TCP message rate in Hz')
+    parser.add_argument('--port', '-p', help='Specify the port for the camera connection', required=True)
+    parser.add_argument('--save', '-s', nargs=1, metavar='OUTPUT_FILE', help='Specify the output file for saving data')
+    parser.add_argument('--rate', '-r', default=1, type=float, help='Specify the TCP message rate in Hz')
+    parser.add_argument('--display', '-d', action='store_true', help='Enable video output showing to screen')
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -187,14 +194,15 @@ def main():
     print(f"\tPort: {args.port}")
     if args.save:
         print(f"\tSave File: {args.save}")
-        out_file = args.save + ".avi"
+        out_file = args.save[0] if isinstance(args.save, list) else args.save
+        out_file += ".avi"
     else:
         out_file = ""
-    print("\n")
 
     if args.rate:
+        print(f"\tRate: {args.rate}")
         PUBLISH_FREQUENCY_HZ = float(args.rate)
-        print(f"received rate: {args.rate}")
+    print("\n")
 
     # Open the camera port
     camera = connect_camera(args.port)
@@ -208,7 +216,7 @@ def main():
             sys.exit(3)
 
         # Run the server
-        run_server(camera, '0.0.0.0', int(DEFAULT_SERVER_PORT), args.save, out_file)
+        run_server(camera, '0.0.0.0', int(DEFAULT_SERVER_PORT), args.save, out_file, args.display)
 
     finally:
         # Clean up

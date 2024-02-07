@@ -178,6 +178,9 @@ CMAKE_STRIP:FILEPATH=/usr/bin/strip
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Enable compilation for Colibri platform
+COLIBRI:BOOL=ON
+
 //Value Computed by CMake
 ImageTracking_BINARY_DIR:STATIC=/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/build
 

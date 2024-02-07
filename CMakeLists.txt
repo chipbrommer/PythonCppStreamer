@@ -3,8 +3,16 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
-# Specify the cross-compiler for aarch64-linux-gnu-g++
-set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+# Define an option for the "colibri" flag
+option(COLIBRI "Enable compilation for Colibri platform" OFF)
+
+# Check if COLIBRI option is enabled
+if(COLIBRI)
+    # Specify the cross-compiler for aarch64-linux-gnu-g++
+    set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)
+    # Print a message to the console
+    message(STATUS "NOTICE: Compilation for Colibri platform enabled. Using aarch64-linux-gnu-g++ as the C++ compiler.")
+endif()
 
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)

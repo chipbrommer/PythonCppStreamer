@@ -16,10 +16,10 @@
 
 
 EO_Interface::EO_Interface(const std::string& scriptFilePath, const std::string& cameraPort, const std::string& ip,
-    const int port, int timeoutSeconds, const std::string& videoFilePath)
+    const int port, const int timeoutSeconds, const int messageRate, const std::string videoFilePath)
     : mScriptFilePath(scriptFilePath), mCameraPort(cameraPort), mIpAddress(ip),
-    mPort(port), mTimeout(timeoutSeconds), mVideoFilePath(videoFilePath),
-    mVideoCaptureEnabled(false), mStarted(false), mSocket(-1), mReadBuffer{},
+    mPort(port), mTimeout(timeoutSeconds), mMessageRate(messageRate), mVideoFilePath(videoFilePath),
+    mVideoCaptureEnabled(false), mDisplay(false), mStarted(false), mSocket(-1), mReadBuffer{},
     mRxCount(0), mTxCount(0), mConnectionStatus(ConnectionStatus::DISCONNECTED)
 {
     // If we received a desired path for the video output saving, 
@@ -57,6 +57,30 @@ bool EO_Interface::EnableVideoCapture(const std::string& videoFilePath)
     return mVideoCaptureEnabled;
 }
 
+bool EO_Interface::EnableVideoDisplay(const bool onoff)
+{
+    // Prevent if already connected. 
+    if (mStarted)
+    {
+        return false;
+    }
+
+    mDisplay = onoff;
+    return mDisplay == onoff;
+}
+
+bool EO_Interface::SetPythonServerMessageRateInHz(const int rate)
+{
+    // Prevent if already connected. 
+    if (mStarted)
+    {
+        return false;
+    }
+
+    mMessageRate = rate;
+    return mMessageRate == rate;
+}
+
 bool EO_Interface::Setup(const std::string& ip, const int port)
 {
     // Prevent if already connected. 
@@ -86,14 +110,23 @@ bool EO_Interface::Connect()
 
     // Create a command based on the OS type. This prevents the python script from
     // taking over the current console output. 
+    std::string command;
 #ifdef _WIN32
-    std::string command = "start cmd /c python ";
+    command = "start cmd /c python ";
 #else
-    std::string command = "python3 ";
+    if(mDisplay)
+        command = "gnome-terminal --window -- python3 ";
+    else
+        command = "python3 ";
 #endif
 
     // Append the received path and the arguemnts needed here for the full command
-    command += mScriptFilePath + " --port " + mCameraPort;
+    command += mScriptFilePath + " --port " + mCameraPort + " --rate " + std::to_string(mMessageRate);
+
+    if (mDisplay)
+    {
+        command += " --display";
+    }
 
     if (mVideoCaptureEnabled)
     {
@@ -346,6 +379,12 @@ void EO_Interface::ProcessData(const std::string & data)
         {
             double elevation = jsonData["elevation"];
             out += "Elevation: " + std::to_string(elevation) + " ";
+        }
+
+        if (jsonData.contains("distance"))
+        {
+            double distance = jsonData["distance"];
+            out += "Distance: " + std::to_string(distance) + " ";
         }
 
         std::cout << out << "\n";
