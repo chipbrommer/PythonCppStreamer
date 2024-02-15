@@ -6,7 +6,7 @@
 #include "eo_interface.h"
 
 // 0 = run colibri, 1 = build on linux, 2 = build on windows
-constexpr int RUN_TYPE = 0;
+constexpr int RUN_TYPE = 1;
 
 int main()
 {
