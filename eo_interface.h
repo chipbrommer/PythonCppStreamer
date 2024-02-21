@@ -64,12 +64,17 @@ public:
     };
 
     // @brief Constructor
-    EO_Interface(const std::string& scriptFilePath, const std::string& cameraPort, const std::string& ip = DEFAULT_IP,
+    EO_Interface(const std::string& scriptFilePath, const std::string& cameraPort = "", const std::string& ip = DEFAULT_IP,
         const int port = DEFAULT_PORT, const int timeout = DEFAULT_TIMEOUT_SECS, const int messageRate = DEFAULT_MESSAGE_RATE, 
         std::string videoFilePath = "");
 
     /// @brief Deconstructor
     ~EO_Interface() {}
+
+    /// @brief Set the camera device filepath
+    /// @param cameraFilePath - the file path for the camera 
+    /// @return true if set successfully, false if failed (typically means script already running)
+    bool SetCameraPath(const std::string& cameraFilePath);
 
     /// @brief Set the timeout for how long to attempt connecting
     /// @param timeout - length of time in seconds

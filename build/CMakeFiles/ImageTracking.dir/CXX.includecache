@@ -45,22 +45,6 @@ thread
 -
 chrono
 -
-winsock2.h
--
-ws2tcpip.h
--
-tchar.h
--
-unistd.h
--
-sys/socket.h
--
-netinet/in.h
--
-arpa/inet.h
--
-nlohmann/json.hpp
-/mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/nlohmann/json.hpp
 eo_interface.h
 /mnt/c/Users/cbrommer/source/repos/MiniStrike_ImageTracking/eo_interface.h
 

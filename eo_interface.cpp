@@ -32,6 +32,18 @@ EO_Interface::EO_Interface(const std::string& scriptFilePath, const std::string&
 #endif
 }
 
+bool EO_Interface::SetCameraPath(const std::string& cameraFilePath)
+{
+    // Prevent if already connected. 
+    if (mStarted)
+    {
+        return false;
+    }
+
+    mCameraPort = cameraFilePath;
+    return mCameraPort == cameraFilePath;
+}
+
 bool EO_Interface::SetConnectingTimeout(const int timeoutSeconds)
 {
     // Prevent if already connected. 
@@ -121,7 +133,12 @@ bool EO_Interface::Connect()
 #endif
 
     // Append the received path and the arguemnts needed here for the full command
-    command += mScriptFilePath + " --port " + mCameraPort + " --rate " + std::to_string(mMessageRate);
+    command += mScriptFilePath + " --rate " + std::to_string(mMessageRate);
+
+    if(mCameraPort != "")
+    {
+        command +=  " --device " + mCameraPort;
+    }
 
     if (mDisplay)
     {
