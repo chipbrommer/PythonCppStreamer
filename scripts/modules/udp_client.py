@@ -68,8 +68,8 @@ class UDPClient(threading.Thread):
         print("[UDP Client] Stopping")
         self.running = False
 
-    def is_stream_enabled(self):
+    def is_stream_enabled(self) -> bool:
         return self.stream_enabled
 
-    def is_display_enabled(self):
+    def is_display_enabled(self) -> bool:
         return self.display_enabled

@@ -9,7 +9,6 @@ import datetime
 import json
 import argparse
 import sys
-import time
 import cv2
 import platform
 import os
@@ -22,9 +21,17 @@ MAJOR_VERSION = 0
 MINOR_VERSION = 0
 BUILD_NUMBER = 6
 VERSION = f"{MAJOR_VERSION}.{MINOR_VERSION}.{BUILD_NUMBER}"
+
+# Global variables 
+DEFAULT_UDP_CLIENT_IP = "224.1.1.5"
 DEFAULT_UDP_CLIENT_PORT = 2468  # Default udp client port
+DEFAULT_TCP_SERVER_IP = "0.0.0.0"
 DEFAULT_TCP_SERVER_PORT = 3456  # Default tcp server port
 PUBLISH_FREQUENCY_HZ = 1        # Desired message rate from the TCP server
+FRAME_WIDTH = 1280
+FRAME_HEIGHT = 960
+CAMERA_FPS = 60
+STREAM_SETUP = False
 
 # @brief - A function to handle connecting to the camera 
 # @param device - device location for the camera
@@ -34,9 +41,15 @@ def connect_camera(device: str):
         # Detect if platform is windows, port will need to be an integer
         if platform.system() == "Windows":
             device = int(device)
+        
+        # Attempt to open the camera connection and set the width/height/frames per sec
         print(f"Opening camera port: {device}")
         camera = cv2.VideoCapture(device)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
+        camera.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
         return camera
+    
     except Exception as e:
         print(f"Error opening camera port: {e}")
         sys.exit(2)
@@ -47,7 +60,7 @@ def connect_camera(device: str):
 # @param file_out - file handle for writing out the video
 # @param display - flag to display video to monitor
 # @return azimuth, elevation, distance of the tracked item
-def process_frame(frame, save: bool, file_out, display: bool, udp_client: UDPClient):
+def process_frame(frame, save: bool, file_out, display: bool, stream: bool, udp_stream):
     azimuth = float(0.0)
     elevation = float(0.0)
     distance = float(0.0)
@@ -55,13 +68,17 @@ def process_frame(frame, save: bool, file_out, display: bool, udp_client: UDPCli
     # @TODO process frame for desired items and draw box. 
 
     # Display the frame if enabled
-    if display | udp_client.is_display_enabled():
-        cv2.imshow('MiniStrike Video Stream', frame)
+    if display:
+        now = datetime.datetime.now()
+        cv2.imshow(f'MiniStrike Video Stream - {now}', frame)
     
     # Write the frame to the output video file if --save flag is provided
     if save:
         if file_out.isOpened():
             file_out.write(frame)
+            
+    if stream:
+        udp_stream.write(frame)
 
     return azimuth, elevation, distance
 
@@ -69,50 +86,50 @@ def process_frame(frame, save: bool, file_out, display: bool, udp_client: UDPCli
 # @param camera - the connection to the camera
 # @param udp_client - the instance of the udp client
 # @param tcp_server - the instance of the tcp server
-# @param save - the program args.save 
+# @param save - bool - Flag to save the a frame to a file
+# @param display - bool - Flag to display video to monitor
+# @param stream - bool - Flag to stream video over received IP and Port
+# @param stream_ip - str - IP to stream camera frame over
+# @param stream_port - int - Port to stream camera frame over
 # @param out_file - the filename/location to write video. 
-# @param display - flag to display video to monitor
-def run_loop(camera, udp_client, tcp_server, save = False, out_file = None, display = False):
-    # Get camera properties
-    frame_width = int(camera.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = int(camera.get(cv2.CAP_PROP_FPS))
+def run_loop(camera, udp_client, tcp_server, save: bool, display: bool, stream: bool, stream_ip: str, stream_port: int, out_file = None):
+    # Access the global variable for stream being setup
+    global STREAM_SETUP
 
-    # Resize frame to lower resolution
-    resized_width = int(frame_width / 2)
-    resized_height = int(frame_height / 2)
-    
     # Define the codec and create a VideoWriter object if --save flag is provided
     if save:
-        writer = cv2.VideoWriter_fourcc(*'MJPG')
-        file_out = cv2.VideoWriter(out_file, writer, fps, (resized_width,resized_height))
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        file_out = cv2.VideoWriter(out_file, fourcc, CAMERA_FPS, (FRAME_WIDTH,FRAME_HEIGHT))
         print(f"Writing video to {out_file}")
     else:
         file_out = ""    
-
+        
     try:
+        if stream and not STREAM_SETUP: 
+            # Set up the Streamer
+            command = f"appsrc ! videoconvert ! video/jped,format=YUY2 ! jpegenc ! rtpjpegpay ! udpsink host={stream_ip} port={stream_port}"
+            print(f"Starting stream: sending -> {command}")
+            udp_stream = cv2.VideoWriter(command, 0, CAMERA_FPS, (FRAME_WIDTH,FRAME_HEIGHT), True)
+            STREAM_SETUP = True
+        else:
+            udp_stream = None
+
         # Calculate the time interval between messages
         time_interval = 1.0 / PUBLISH_FREQUENCY_HZ
         print(f"Configured to sending at {time_interval} seconds : {PUBLISH_FREQUENCY_HZ} Hz")
         lastSend = datetime.datetime.now()
-        
-        # Wait until at least one connection is established on the TCP server
-        while tcp_server.get_num_connections() == 0:
-            time.sleep(1)  # Sleep for 1 second before checking again
-        
+           
         # While loop to execute while we have a connection
-        while tcp_server.get_num_connections() > 0 and camera.isOpened():
+        while camera.isOpened():
             # Read a new frame - break if we failed to read
-            goodRead, frame = camera.read()
-            if not goodRead:
+            good_read, frame = camera.read()
+            if not good_read:
                 print("Failed to read camera frame")
                 break
-            
-             # Resize the frame
-            resized_frame = cv2.resize(frame, (resized_width, resized_height))
 
             # Send resized frame for image processing and receive an azimuth, elevation, and distance
-            azimuth, elevation, distance = process_frame(resized_frame, save, file_out, display, udp_client)
+            azimuth, elevation, distance = process_frame(frame, save, file_out, (display or udp_client.is_display_enabled()), 
+                                                         (stream or udp_client.is_stream_enabled()), udp_stream)
 
             # Get the current timestamp of the day
             now = datetime.datetime.now()
@@ -148,7 +165,9 @@ def run_loop(camera, udp_client, tcp_server, save = False, out_file = None, disp
             file_out.release()
 
 # @brief - Prints out the received args
-def print_arguments(args):
+# @param args - list of program received arguments
+# @return - None
+def print_arguments(args) -> None:
     print("Received arguments:")
     
     if args.device:
@@ -232,9 +251,13 @@ def find_camera_device_path():
     return None
 
 # @brief - Main function for the application
-def main():
-    # Declare PUBLISH_FREQUENCY_HZ as global
-    global PUBLISH_FREQUENCY_HZ  
+def main():    
+    # Access the global
+    global PUBLISH_FREQUENCY_HZ 
+    global DEFAULT_TCP_SERVER_IP
+    global DEFAULT_TCP_SERVER_PORT
+    global DEFAULT_UDP_CLIENT_IP
+    global DEFAULT_UDP_CLIENT_PORT
     
     # Stream items
     stream_enabled = False
@@ -271,9 +294,6 @@ def main():
 
         if args.rate:
             PUBLISH_FREQUENCY_HZ = float(args.rate)
-
-        if args.visual:
-            displayEnabled = True
             
         if args.stream:
             if args.stream != '':
@@ -312,7 +332,7 @@ def main():
         tcp_server.start()
 
         # Run the main loop
-        run_loop(camera, udp_client, tcp_server, args.save, out_file, args.visual)
+        run_loop(camera, udp_client, tcp_server, args.save, out_file, args.visual, stream_enabled, stream_ip, stream_port)
 
     finally:
         # Clean up
