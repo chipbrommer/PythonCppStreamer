@@ -16,6 +16,10 @@ import os
 import subprocess
 from modules.udp_client import UDPClient
 from modules.tcp_server import TCPServer
+import gi
+gi.require_version('Gst', '1.0')
+from gi.repository import GObject, Gst
+import numpy as np
 
 # Define the version number
 MAJOR_VERSION = 0
