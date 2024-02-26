@@ -10,6 +10,7 @@ import json
 import argparse
 import sys
 import cv2
+import select
 import platform
 import os
 import subprocess
@@ -155,6 +156,16 @@ def run_loop(camera, udp_client, tcp_server, save: bool, display: bool, stream: 
 
                 # Send JSON data over the socket
                 tcp_server.send_message(json_data.encode('utf-8'))
+        
+            # Check if user wants to quit
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                line = sys.stdin.readline().strip()
+                print("Exiting...")
+                if line == 'quit' or line == 'exit':
+                    break
+                
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt Caught, exiting...")
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -175,8 +186,6 @@ def print_arguments(args) -> None:
 
     if args.save is not None:
         print(f"\tSave File: {args.save[0]}")
-    else:
-        print("\tNo save file specified.")
 
     if args.rate:
         print(f"\tTCP Server Rate: {args.rate}")
@@ -278,14 +287,17 @@ def main():
 
     # Allowed Arguments
     parser.add_argument('--device', '-d',nargs=1, metavar='DEVICE_PATH', help='Specify the device location for the camera connection')
-    parser.add_argument('--save', '-s', nargs=1, metavar='OUTPUT_FILE', help='Specify the output file for saving data')
+    parser.add_argument('--save', '-f', nargs=1, metavar='OUTPUT_FILE', help='Specify the output file for saving data')
     parser.add_argument('--rate', '-r', default=1, type=int, metavar='RATE_HZ', help='Specify the TCP message rate in Hz')
     parser.add_argument('--visual', '-v', action='store_true', help='Enable video output showing to screen')
-    parser.add_argument('--stream', '-t', nargs=2, metavar=('IP', 'PORT'), help='Enable streaming to the specified IP address and port')
+    parser.add_argument('--stream', '-s', nargs=2, metavar=('IP', 'PORT'), help='Enable streaming to the specified IP address and port')
     parser.add_argument('--multicast', '-m', action='store_true', help='Enable multicast for steaming')
 
     # Parse the command-line arguments
     args = parser.parse_args()
+    
+    #  Print the arguments
+    print_arguments(args)
 
     # Check if any arguments were received
     if any(arg != parser.get_default(key) for key, arg in vars(args).items()):
